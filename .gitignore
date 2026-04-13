@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Runtime storage
+storage/**/*.db
+storage/tmp/
+storage/source/
+storage/result/
+
+# OS
+.DS_Store
