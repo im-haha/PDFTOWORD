@@ -33,27 +33,27 @@ PAGE_BOTTOM_MARGIN = Cm(2.0)
 PAGE_LEFT_MARGIN = Cm(2.2)
 PAGE_RIGHT_MARGIN = Cm(2.2)
 
-# 字体
-CN_FONT_TITLE = "黑体"          # 姓名、一级标题
-CN_FONT_BODY = "宋体"           # 正文、二级标题
+# 字体 — 匹配原始简历风格
+CN_FONT_TITLE = "宋体"          # 一级标题、小标题
+CN_FONT_BODY = "KaiTi"          # 正文楷体
 EN_FONT = "Calibri"             # 英文/数字
 
 # 字号
-NAME_SIZE = Pt(22)              # 姓名
-POSITION_SIZE = Pt(12)          # 应聘职位
-CONTACT_SIZE = Pt(10.5)         # 联系方式
-SECTION_HEADING_SIZE = Pt(14)   # 一级标题
+NAME_SIZE = Pt(14)              # 姓名（原始为14pt宋体）
+POSITION_SIZE = Pt(14)          # 应聘职位
+CONTACT_SIZE = Pt(12)           # 联系方式
+SECTION_HEADING_SIZE = Pt(10)   # 一级标题（如"一、工作经验："）
 SUB_HEADING_SIZE = Pt(12)       # 二级标题（时段/项目名/技术栈）
-BODY_SIZE = Pt(11)              # 正文
-SMALL_LABEL_SIZE = Pt(10.5)     # 小标签
+LABEL_SIZE = Pt(10)             # 小标签（"项目描述：""工作内容与成果："）
+BODY_SIZE = Pt(12)              # 正文楷体
+TECH_STACK_SIZE = Pt(10)        # 技术栈行
 
 # 行距
-LINE_SPACING = 1.15
+LINE_SPACING = 1.35             # 接近原文的行距
 
 # 颜色
 COLOR_BLACK = RGBColor(0x00, 0x00, 0x00)
-COLOR_HEADING = RGBColor(0x1A, 0x1A, 0x1A)
-COLOR_ACCENT = RGBColor(0x2B, 0x57, 0x9A)  # 一级标题用深蓝色
+COLOR_HEADING = RGBColor(0x00, 0x00, 0x00)
 
 
 # ── 辅助函数 ──────────────────────────────────────────
@@ -109,21 +109,12 @@ def add_text_run(paragraph, text, cn_font, en_font, size,
 
 
 def add_section_heading(doc, title):
-    """添加一级标题段落（如 "工作经验"），带底部分隔线。"""
+    """添加一级标题段落（如 "一、工作经验："），宋体加粗，无装饰线。"""
     p = doc.add_paragraph()
     set_paragraph_format(p, WD_ALIGN_PARAGRAPH.LEFT,
-                         space_before=Pt(14), space_after=Pt(6))
+                         space_before=Pt(12), space_after=Pt(4))
     add_text_run(p, title, CN_FONT_TITLE, EN_FONT, SECTION_HEADING_SIZE,
-                 bold=True, color=COLOR_ACCENT)
-    # 添加底部边框线
-    pPr = p._element.get_or_add_pPr()
-    pBdr = parse_xml(
-        f'<w:pBdr {nsdecls("w")}>'
-        f'  <w:bottom w:val="single" w:sz="6" w:space="1" w:color="2B579A"/>'
-        f'</w:pBdr>'
-    )
-    pPr.append(pBdr)
-    return p
+                 bold=False, color=COLOR_BLACK)
 
 
 def add_sub_heading(doc, text, bold=True, size=SUB_HEADING_SIZE):
@@ -135,24 +126,37 @@ def add_sub_heading(doc, text, bold=True, size=SUB_HEADING_SIZE):
     return p
 
 
-def add_body_text(doc, text, indent=False, space_before=Pt(1), space_after=Pt(1)):
-    """添加正文段落。"""
+def add_body_text(doc, text, indent=False, left_indent=None,
+                  space_before=Pt(2), space_after=Pt(2)):
+    """添加楷体正文段落。"""
     p = doc.add_paragraph()
-    first_indent = Cm(0.5) if indent else Pt(0)
+    first_indent = Cm(0.74) if indent else Pt(0)
     set_paragraph_format(p, WD_ALIGN_PARAGRAPH.LEFT,
                          space_before=space_before, space_after=space_after,
                          first_line_indent=first_indent)
+    if left_indent is not None:
+        p.paragraph_format.left_indent = left_indent
     add_text_run(p, text, CN_FONT_BODY, EN_FONT, BODY_SIZE)
     return p
 
 
 def add_tech_stack_line(doc, text):
-    """添加技术栈行（加粗、略小字号）。"""
+    """添加技术栈行（Calibri 加粗）。"""
     p = doc.add_paragraph()
     set_paragraph_format(p, WD_ALIGN_PARAGRAPH.LEFT,
                          space_before=Pt(2), space_after=Pt(4))
-    add_text_run(p, text, CN_FONT_BODY, EN_FONT, SMALL_LABEL_SIZE, bold=True,
-                 color=RGBColor(0x33, 0x33, 0x33))
+    add_text_run(p, text, CN_FONT_TITLE, EN_FONT, TECH_STACK_SIZE, bold=True,
+                 color=COLOR_BLACK)
+    return p
+
+
+def add_label_text(doc, text, space_before=Pt(10), space_after=Pt(4)):
+    """添加宋体加粗小标签（如 '项目描述：' '工作内容与成果：'）。"""
+    p = doc.add_paragraph()
+    set_paragraph_format(p, WD_ALIGN_PARAGRAPH.LEFT,
+                         space_before=space_before, space_after=space_after)
+    add_text_run(p, text, CN_FONT_TITLE, EN_FONT, LABEL_SIZE,
+                 bold=False, color=COLOR_BLACK)
     return p
 
 
@@ -378,141 +382,116 @@ def build_resume(content):
     style.paragraph_format.line_spacing = LINE_SPACING
 
     # ============================================================
-    # 1. 姓名
-    # ============================================================
-    p_name = doc.add_paragraph()
-    set_paragraph_format(p_name, WD_ALIGN_PARAGRAPH.CENTER,
-                         space_before=Pt(0), space_after=Pt(4))
-    add_text_run(p_name, content["name"], CN_FONT_TITLE, EN_FONT,
-                 NAME_SIZE, bold=True, color=COLOR_HEADING)
-
-    # ============================================================
-    # 2. 应聘职位
+    # 1. 应聘职位（左对齐，宋体）
     # ============================================================
     p_pos = doc.add_paragraph()
-    set_paragraph_format(p_pos, WD_ALIGN_PARAGRAPH.CENTER,
-                         space_before=Pt(2), space_after=Pt(4))
-    add_text_run(p_pos, f"应聘：{content['position']}", CN_FONT_BODY, EN_FONT,
-                 POSITION_SIZE, color=RGBColor(0x33, 0x33, 0x33))
+    set_paragraph_format(p_pos, WD_ALIGN_PARAGRAPH.LEFT,
+                         space_before=Pt(0), space_after=Pt(0))
+    add_text_run(p_pos, f"应聘：", CN_FONT_TITLE, EN_FONT, POSITION_SIZE)
+    add_text_run(p_pos, content["position"], CN_FONT_TITLE, EN_FONT,
+                 POSITION_SIZE, bold=True)
 
     # ============================================================
-    # 3. 联系信息（合并为一行，居中）
+    # 2. 姓名
     # ============================================================
-    contact_parts = []
+    p_name = doc.add_paragraph()
+    set_paragraph_format(p_name, WD_ALIGN_PARAGRAPH.LEFT,
+                         space_before=Pt(8), space_after=Pt(2))
+    add_text_run(p_name, content["name"], CN_FONT_BODY, EN_FONT, NAME_SIZE)
+
+    # ============================================================
+    # 3. 联系信息（楷体，分两行：性别年龄 / 电话邮箱）
+    # ============================================================
     ga = content["gender_age"]
     if ga:
-        # 提取性别和年龄
-        m_gender = re.search(r"性别[：:]\s*(\S+)", ga)
-        m_age = re.search(r"年龄[：:]\s*(\S+)", ga)
-        if m_gender:
-            contact_parts.append(f"性别：{m_gender.group(1)}")
-        if m_age:
-            contact_parts.append(f"年龄：{m_age.group(1)}")
+        p_ga = doc.add_paragraph()
+        set_paragraph_format(p_ga, WD_ALIGN_PARAGRAPH.LEFT,
+                             space_before=Pt(6), space_after=Pt(2))
+        add_text_run(p_ga, ga, CN_FONT_BODY, EN_FONT, CONTACT_SIZE)
 
     ct = content["contact"]
     if ct:
-        m_phone = re.search(r"电话[：:]\s*(\S+)", ct)
-        m_email = re.search(r"邮箱[：:]\s*(\S+)", ct)
-        if m_phone:
-            contact_parts.append(f"电话：{m_phone.group(1)}")
-        if m_email:
-            contact_parts.append(f"邮箱：{m_email.group(1)}")
-
-    if contact_parts:
-        p_contact = doc.add_paragraph()
-        set_paragraph_format(p_contact, WD_ALIGN_PARAGRAPH.CENTER,
-                             space_before=Pt(0), space_after=Pt(10))
-        separator = "    |    "
-        add_text_run(p_contact, separator.join(contact_parts),
-                     CN_FONT_BODY, EN_FONT, CONTACT_SIZE,
-                     color=RGBColor(0x55, 0x55, 0x55))
+        p_ct = doc.add_paragraph()
+        set_paragraph_format(p_ct, WD_ALIGN_PARAGRAPH.LEFT,
+                             space_before=Pt(2), space_after=Pt(6))
+        add_text_run(p_ct, ct, CN_FONT_BODY, EN_FONT, CONTACT_SIZE)
 
     # ============================================================
     # 4. 工作经验
     # ============================================================
     if content["work_experience"]:
-        add_section_heading(doc, "工作经验")
+        add_section_heading(doc, "一、工作经验：")
         for exp in content["work_experience"]:
-            # 时间段 + 职位标题同行
-            p = doc.add_paragraph()
-            set_paragraph_format(p, WD_ALIGN_PARAGRAPH.LEFT,
-                                 space_before=Pt(8), space_after=Pt(2))
-            add_text_run(p, exp["period"], CN_FONT_BODY, EN_FONT,
-                         SUB_HEADING_SIZE, bold=True)
-            add_text_run(p, "    ", CN_FONT_BODY, EN_FONT, SUB_HEADING_SIZE)
-            add_text_run(p, exp["title"], CN_FONT_BODY, EN_FONT,
-                         SUB_HEADING_SIZE, bold=True)
+            # 时间段
+            p_period = doc.add_paragraph()
+            set_paragraph_format(p_period, WD_ALIGN_PARAGRAPH.LEFT,
+                                 space_before=Pt(4), space_after=Pt(0))
+            add_text_run(p_period, exp["period"], CN_FONT_BODY, EN_FONT,
+                         BODY_SIZE)
 
-            # 技术栈
+            # 职位
+            p_title = doc.add_paragraph()
+            set_paragraph_format(p_title, WD_ALIGN_PARAGRAPH.LEFT,
+                                 space_before=Pt(0), space_after=Pt(2))
+            add_text_run(p_title, exp["title"], CN_FONT_BODY, EN_FONT,
+                         BODY_SIZE)
+
+            # 技术栈（Calibri 加粗）
             if exp["tech"]:
-                add_tech_stack_line(doc, f"技术栈：{exp['tech']}")
+                add_tech_stack_line(doc, exp["tech"])
 
-            # 工作职责
+            # 工作职责（带左缩进）
             duties = merge_duty_items(exp["duties"])
             for duty in duties:
-                add_body_text(doc, duty)
+                add_body_text(doc, duty, left_indent=Cm(1.0),
+                              space_before=Pt(2), space_after=Pt(2))
 
     # ============================================================
     # 5. 专业技能
     # ============================================================
     if content["skills"]:
-        add_section_heading(doc, "专业技能")
+        add_section_heading(doc, "二、专业技能：")
         merged_skills = merge_skill_items(content["skills"])
         for skill in merged_skills:
-            add_body_text(doc, skill, space_before=Pt(2), space_after=Pt(2))
+            add_body_text(doc, skill, left_indent=Cm(0),
+                          space_before=Pt(3), space_after=Pt(3))
 
     # ============================================================
     # 6. 项目经验
     # ============================================================
     if content["projects"]:
-        add_section_heading(doc, "项目经验")
+        add_section_heading(doc, "三、项目经验：")
         for proj in content["projects"]:
-            # 项目标题 + 技术栈
+            # 项目标题行（含技术栈）
             name_tech = proj["name_tech"]
-            # 拆分项目名和技术栈
-            tech_match = re.search(r"技术栈[：:](.+)", name_tech)
-            proj_name_match = re.match(r"(\d+[、.].+?)技术栈", name_tech)
+            p_proj = doc.add_paragraph()
+            set_paragraph_format(p_proj, WD_ALIGN_PARAGRAPH.LEFT,
+                                 space_before=Pt(8), space_after=Pt(2))
+            add_text_run(p_proj, name_tech, CN_FONT_BODY, EN_FONT, BODY_SIZE)
 
-            p = doc.add_paragraph()
-            set_paragraph_format(p, WD_ALIGN_PARAGRAPH.LEFT,
-                                 space_before=Pt(10), space_after=Pt(2))
-
-            proj_name = proj_name_match.group(1).strip() if proj_name_match else name_tech
-            add_text_run(p, proj_name, CN_FONT_BODY, EN_FONT,
-                         SUB_HEADING_SIZE, bold=True)
-
-            if tech_match:
-                tech_text = tech_match.group(1).strip()
-                add_tech_stack_line(doc, f"技术栈：{tech_text}")
-
-            # 项目描述
+            # 项目描述：（宋体小标签）
             if proj["desc"]:
-                p_desc_label = doc.add_paragraph()
-                set_paragraph_format(p_desc_label, WD_ALIGN_PARAGRAPH.LEFT,
-                                     space_before=Pt(4), space_after=Pt(1))
-                add_text_run(p_desc_label, "项目描述：", CN_FONT_BODY, EN_FONT,
-                             BODY_SIZE, bold=True)
-
+                add_label_text(doc, "项目描述：",
+                               space_before=Pt(6), space_after=Pt(2))
+                # 描述正文（楷体，带首行缩进）
                 add_body_text(doc, proj["desc"], indent=True,
-                              space_before=Pt(1), space_after=Pt(4))
+                              space_before=Pt(0), space_after=Pt(4))
 
-            # 工作内容
+            # 工作内容与成果：（宋体小标签）
             duties = merge_duty_items(proj["duties"])
             if duties:
-                p_duty_label = doc.add_paragraph()
-                set_paragraph_format(p_duty_label, WD_ALIGN_PARAGRAPH.LEFT,
-                                     space_before=Pt(4), space_after=Pt(1))
-                add_text_run(p_duty_label, "工作内容与成果：", CN_FONT_BODY, EN_FONT,
-                             BODY_SIZE, bold=True)
-
+                add_label_text(doc, "工作内容与成果：",
+                               space_before=Pt(6), space_after=Pt(2))
                 for duty in duties:
-                    add_body_text(doc, duty)
+                    # 编号条目带左缩进
+                    add_body_text(doc, duty, left_indent=Cm(1.0),
+                                  space_before=Pt(2), space_after=Pt(2))
 
     # ============================================================
     # 7. 自我评价
     # ============================================================
     if content["self_eval"]:
-        add_section_heading(doc, "自我评价")
+        add_section_heading(doc, "四、自我评价：")
         add_body_text(doc, content["self_eval"], indent=True,
                       space_before=Pt(4), space_after=Pt(4))
 
