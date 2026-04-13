@@ -1,5 +1,20 @@
 const API_PREFIX = '/api/v1'
 
+function normalizeTask(data) {
+  const report = data?.report || null
+  return {
+    ...data,
+    conversionMode: data?.conversionMode || 'editable',
+    retainLayout: Boolean(data?.retainLayout),
+    detectTables: Boolean(data?.detectTables),
+    layoutWarnings: Array.isArray(data?.layoutWarnings) ? data.layoutWarnings : [],
+    fontSubstitutions: data?.fontSubstitutions || {},
+    fallbackSummary: data?.fallbackSummary || { fallbackBlockCount: 0, degradedTableCount: 0 },
+    qualityGrade: data?.qualityGrade || report?.qualityGrade || null,
+    report
+  }
+}
+
 async function parseJson(res) {
   const payload = await res.json().catch(() => ({ code: -1, message: 'invalid response', data: null }))
   if (!res.ok || payload.code !== 0) {
@@ -23,12 +38,12 @@ export async function createTask({ file, retainLayout, detectTables, outputName,
     method: 'POST',
     body: form
   })
-  return parseJson(res)
+  return normalizeTask(await parseJson(res))
 }
 
 export async function fetchTask(taskId) {
   const res = await fetch(`${API_PREFIX}/tasks/${taskId}`)
-  return parseJson(res)
+  return normalizeTask(await parseJson(res))
 }
 
 export async function deleteTask(taskId) {

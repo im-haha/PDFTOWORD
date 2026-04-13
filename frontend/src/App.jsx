@@ -76,12 +76,20 @@ export default function App() {
         status: accepted.status,
         progress: 0,
         sourceFilename: file.name,
+        conversionMode: form.conversionMode,
+        retainLayout: form.retainLayout,
+        detectTables: form.detectTables,
         createdAt: accepted.createdAt,
         startedAt: null,
         finishedAt: null,
         downloadUrl: null,
         errorCode: null,
-        errorMessage: null
+        errorMessage: null,
+        report: null,
+        layoutWarnings: [],
+        fontSubstitutions: {},
+        fallbackSummary: { fallbackBlockCount: 0, degradedTableCount: 0 },
+        qualityGrade: null
       }
 
       setTask(baseTask)
@@ -132,7 +140,7 @@ export default function App() {
         <div className="hero-brand">PDF to Word</div>
         <h1>文本型 PDF 高保真转换工作台</h1>
         <p>
-          上传 PDF，异步转换，轮询状态，下载结果。默认输出可编辑 Word；如需外观优先可切换 visual_exact。
+          上传 PDF，异步转换，轮询状态，下载结果。`editable` 优先可编辑性；`visual_exact` 优先外观还原。
         </p>
       </header>
 
@@ -172,10 +180,15 @@ export default function App() {
                 value={form.conversionMode}
                 onChange={(e) => setForm((old) => ({ ...old, conversionMode: e.target.value }))}
               >
-                <option value="visual_exact">visual_exact（外观最接近原 PDF）</option>
                 <option value="editable">editable（可编辑优先）</option>
+                <option value="visual_exact">visual_exact（外观最接近原 PDF）</option>
               </select>
             </label>
+            {form.conversionMode === 'visual_exact' ? (
+              <div className="mode-risk">
+                当前模式更像原版 PDF，但正文可能是页面图片，不适合深度编辑。
+              </div>
+            ) : null}
           </div>
 
           <div className="toggles">
@@ -185,7 +198,7 @@ export default function App() {
                 checked={form.retainLayout}
                 onChange={(e) => setForm((old) => ({ ...old, retainLayout: e.target.checked }))}
               />
-              retainLayout
+              retainLayout（尽量保留页面布局）
             </label>
             <label>
               <input
@@ -193,7 +206,7 @@ export default function App() {
                 checked={form.detectTables}
                 onChange={(e) => setForm((old) => ({ ...old, detectTables: e.target.checked }))}
               />
-              detectTables
+              detectTables（启用表格检测）
             </label>
           </div>
 
@@ -231,9 +244,39 @@ export default function App() {
                   <dt>结束时间</dt>
                   <dd>{task.finishedAt ? new Date(task.finishedAt).toLocaleString() : '-'}</dd>
                 </div>
+                <div>
+                  <dt>模式</dt>
+                  <dd>{task.conversionMode || '-'}</dd>
+                </div>
+                <div>
+                  <dt>retainLayout</dt>
+                  <dd>{task.retainLayout ? '开启' : '关闭'}</dd>
+                </div>
               </dl>
 
               <ProgressBar value={task.progress || 0} />
+
+              {task.report ? (
+                <div className="report-box">
+                  <div className="report-title">质量报告</div>
+                  <div className="report-grid">
+                    <div>质量等级: <b>{task.qualityGrade || task.report.qualityGrade || '-'}</b></div>
+                    <div>段落数: {task.report.paragraphCount ?? '-'}</div>
+                    <div>表格数: {task.report.tableCount ?? '-'}</div>
+                    <div>图片数: {task.report.imageCount ?? '-'}</div>
+                    <div>字体替代: {task.report.fontSubstitutionCount ?? '-'}</div>
+                    <div>退化块: {task.report.fallbackBlockCount ?? '-'}</div>
+                    <div>页面警告: {task.report.layoutWarningCount ?? '-'}</div>
+                  </div>
+                  {task.layoutWarnings?.length ? (
+                    <ul className="warnings-list">
+                      {task.layoutWarnings.slice(0, 8).map((w, idx) => (
+                        <li key={`${idx}-${w}`}>{w}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
 
               {task.errorMessage ? (
                 <div className="error-box">{task.errorCode || 'FAILED'}: {task.errorMessage}</div>

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+import json
+from typing import Any
 
 from sqlalchemy import select
 
@@ -54,6 +56,11 @@ def create_task(
         expires_at=now + timedelta(hours=TASK_EXPIRE_HOURS),
         trace_id=trace_id,
         latest_progress=0,
+        report_json=None,
+        report_summary=None,
+        layout_warning_count=0,
+        fallback_block_count=0,
+        font_substitution_count=0,
     )
     with get_db_session() as db:
         db.add(task)
@@ -78,7 +85,7 @@ def mark_processing(task_id: str) -> None:
         task.latest_progress = 1
 
 
-def mark_succeeded(task_id: str, result_path: str) -> None:
+def mark_succeeded(task_id: str, result_path: str, report: Any | None = None) -> None:
     with get_db_session() as db:
         task = db.get(ConversionTask, task_id)
         if not task:
@@ -87,16 +94,26 @@ def mark_succeeded(task_id: str, result_path: str) -> None:
         task.result_path = result_path
         task.finished_at = datetime.now()
         task.latest_progress = 100
+        if report is not None:
+            report_payload = report.to_dict() if hasattr(report, "to_dict") else report
+            task.report_json = json.dumps(report_payload, ensure_ascii=False)
+            quality = report_payload.get("qualityGrade", "-")
+            warn = int(report_payload.get("layoutWarningCount", 0))
+            fallback = int(report_payload.get("fallbackBlockCount", 0))
+            task.report_summary = f"grade={quality}, warnings={warn}, fallback={fallback}"
+            task.layout_warning_count = warn
+            task.fallback_block_count = fallback
+            task.font_substitution_count = int(report_payload.get("fontSubstitutionCount", 0))
 
 
-def mark_failed(task_id: str, error_code: str, error_message: str) -> None:
+def mark_failed(task_id: str, error_code: str, error_message: str, phase: str | None = None) -> None:
     with get_db_session() as db:
         task = db.get(ConversionTask, task_id)
         if not task:
             return
         task.status = "failed"
         task.error_code = error_code
-        task.error_message = error_message
+        task.error_message = f"[{phase}] {error_message}" if phase else error_message
         task.finished_at = datetime.now()
         task.latest_progress = max(task.latest_progress, 1)
 

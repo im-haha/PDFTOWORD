@@ -66,7 +66,7 @@ class ConvertWorker:
 
         complexity = inspect_complexity(task.source_path)
         if complexity.too_complex:
-            mark_failed(task_id, "PAGE_COMPLEXITY_EXCEEDED", complexity.reason)
+            mark_failed(task_id, "PAGE_COMPLEXITY_EXCEEDED", complexity.reason, phase="precheck")
             progress_service.delete(task_id)
             return
 
@@ -87,16 +87,17 @@ class ConvertWorker:
                     update_progress,
                     task.conversion_mode,
                     task.detect_tables,
+                    task.retain_layout,
                 ),
                 timeout=settings.worker_max_seconds,
             )
             temp_dir = result.temp_dir
-            mark_succeeded(task_id, result_path)
+            mark_succeeded(task_id, result_path, result.report)
         except TimeoutError:
-            mark_failed(task_id, "TASK_TIMEOUT", "task execution timeout")
+            mark_failed(task_id, "TASK_TIMEOUT", "task execution timeout", phase="convert")
         except Exception as exc:
             logger.exception("task convert failed task=%s", task_id)
-            mark_failed(task_id, "DOCX_GENERATION_FAILED", str(exc))
+            mark_failed(task_id, "DOCX_GENERATION_FAILED", str(exc), phase="docx_write")
         finally:
             remove_temp_dir(temp_dir)
             progress_service.delete(task_id)

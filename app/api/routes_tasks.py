@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
@@ -112,17 +113,46 @@ def get_task_status(task_id: str) -> dict:
     if task.status == "succeeded":
         download_url = f"{settings.api_prefix}/tasks/{task.id}/result"
 
+    report_payload = None
+    if task.report_json:
+        try:
+            report_payload = json.loads(task.report_json)
+        except json.JSONDecodeError:
+            report_payload = None
+
+    layout_warnings = []
+    font_substitutions = {}
+    fallback_summary = {
+        "fallbackBlockCount": task.fallback_block_count or 0,
+        "degradedTableCount": 0,
+    }
+    quality_grade = None
+    if report_payload:
+        layout_warnings = list(report_payload.get("warnings", []))
+        font_substitutions = dict(report_payload.get("fontSubstitutions", {}))
+        fallback_summary["fallbackBlockCount"] = int(report_payload.get("fallbackBlockCount", fallback_summary["fallbackBlockCount"]))
+        fallback_summary["degradedTableCount"] = int(report_payload.get("degradedTables", 0))
+        quality_grade = report_payload.get("qualityGrade")
+
     data = TaskStatusData(
         taskId=task.id,
         status=task.status,
         progress=progress,
         sourceFilename=task.source_filename,
+        conversionMode=task.conversion_mode,
+        retainLayout=task.retain_layout,
+        detectTables=task.detect_tables,
         createdAt=task.created_at,
         startedAt=task.started_at,
         finishedAt=task.finished_at,
         downloadUrl=download_url,
         errorCode=task.error_code,
         errorMessage=task.error_message,
+        report=report_payload,
+        layoutWarnings=layout_warnings,
+        fontSubstitutions=font_substitutions,
+        fallbackSummary=fallback_summary,
+        qualityGrade=quality_grade,
     )
     return {"code": 0, "message": "ok", "data": data.model_dump(mode="json")}
 

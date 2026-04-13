@@ -24,6 +24,11 @@ class ConversionTask(Base):
     retain_layout: Mapped[bool] = mapped_column(Boolean, default=True)
     detect_tables: Mapped[bool] = mapped_column(Boolean, default=False)
     conversion_mode: Mapped[str] = mapped_column(String(30), default="editable")
+    report_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    report_summary: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    layout_warning_count: Mapped[int] = mapped_column(Integer, default=0)
+    fallback_block_count: Mapped[int] = mapped_column(Integer, default=0)
+    font_substitution_count: Mapped[int] = mapped_column(Integer, default=0)
 
     error_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
