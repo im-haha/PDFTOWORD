@@ -17,8 +17,8 @@
 import re
 import copy
 from docx import Document
-from docx.shared import Pt, Cm, Emu, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.shared import Pt, Cm, Emu, RGBColor, Twips
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT
 from docx.oxml.ns import qn, nsdecls
 from docx.oxml import parse_xml
 
@@ -422,29 +422,32 @@ def build_resume(content):
     if content["work_experience"]:
         add_section_heading(doc, "一、工作经验：")
         for exp in content["work_experience"]:
-            # 时间段
-            p_period = doc.add_paragraph()
-            set_paragraph_format(p_period, WD_ALIGN_PARAGRAPH.LEFT,
+            # 时间段 + 职位（同一行，用 Tab 右对齐分隔）
+            p_line = doc.add_paragraph()
+            set_paragraph_format(p_line, WD_ALIGN_PARAGRAPH.LEFT,
                                  space_before=Pt(4), space_after=Pt(0))
-            add_text_run(p_period, exp["period"], CN_FONT_BODY, EN_FONT,
-                         BODY_SIZE)
+            # 添加右对齐 tab stop
+            tab_stops = p_line.paragraph_format.tab_stops
+            # 页宽 21cm - 左右边距 2.2cm*2 = 16.6cm 可用宽度
+            tab_stops.add_tab_stop(Cm(16.6), WD_TAB_ALIGNMENT.RIGHT)
+            add_text_run(p_line, exp["period"], CN_FONT_BODY, EN_FONT, BODY_SIZE)
+            add_text_run(p_line, "\t", CN_FONT_BODY, EN_FONT, BODY_SIZE)
+            add_text_run(p_line, exp["title"], CN_FONT_BODY, EN_FONT, BODY_SIZE)
 
-            # 职位
-            p_title = doc.add_paragraph()
-            set_paragraph_format(p_title, WD_ALIGN_PARAGRAPH.LEFT,
-                                 space_before=Pt(0), space_after=Pt(2))
-            add_text_run(p_title, exp["title"], CN_FONT_BODY, EN_FONT,
-                         BODY_SIZE)
-
-            # 技术栈（Calibri 加粗）
+            # 技术栈（Calibri 加粗，缩进）
             if exp["tech"]:
-                add_tech_stack_line(doc, exp["tech"])
+                p_tech = doc.add_paragraph()
+                set_paragraph_format(p_tech, WD_ALIGN_PARAGRAPH.LEFT,
+                                     space_before=Pt(0), space_after=Pt(2))
+                p_tech.paragraph_format.left_indent = Cm(0.5)
+                add_text_run(p_tech, exp["tech"], CN_FONT_TITLE, EN_FONT,
+                             TECH_STACK_SIZE, bold=True)
 
-            # 工作职责（带左缩进）
+            # 工作职责（首行缩进）
             duties = merge_duty_items(exp["duties"])
             for duty in duties:
-                add_body_text(doc, duty, left_indent=Cm(1.0),
-                              space_before=Pt(2), space_after=Pt(2))
+                add_body_text(doc, duty, indent=True,
+                              space_before=Pt(1), space_after=Pt(1))
 
     # ============================================================
     # 5. 专业技能
@@ -453,7 +456,7 @@ def build_resume(content):
         add_section_heading(doc, "二、专业技能：")
         merged_skills = merge_skill_items(content["skills"])
         for skill in merged_skills:
-            add_body_text(doc, skill, left_indent=Cm(0),
+            add_body_text(doc, skill, indent=True,
                           space_before=Pt(3), space_after=Pt(3))
 
     # ============================================================
@@ -462,29 +465,44 @@ def build_resume(content):
     if content["projects"]:
         add_section_heading(doc, "三、项目经验：")
         for proj in content["projects"]:
-            # 项目标题行（含技术栈）
+            # 拆分项目名和技术栈
             name_tech = proj["name_tech"]
+            tech_match = re.search(r"技术栈[：:](.+)", name_tech)
+            proj_name_match = re.match(r"(\d+[、.].+?)技术栈", name_tech)
+            proj_name = proj_name_match.group(1).strip() if proj_name_match else name_tech
+
+            # 项目名（单独一行）
             p_proj = doc.add_paragraph()
             set_paragraph_format(p_proj, WD_ALIGN_PARAGRAPH.LEFT,
                                  space_before=Pt(8), space_after=Pt(2))
-            add_text_run(p_proj, name_tech, CN_FONT_BODY, EN_FONT, BODY_SIZE)
+            add_text_run(p_proj, proj_name, CN_FONT_BODY, EN_FONT, BODY_SIZE)
 
-            # 项目描述：（宋体小标签）
+            # 技术栈（单独一行，带缩进和 "技术栈：" 前缀）
+            if tech_match:
+                tech_text = tech_match.group(1).strip()
+                p_tech = doc.add_paragraph()
+                set_paragraph_format(p_tech, WD_ALIGN_PARAGRAPH.LEFT,
+                                     space_before=Pt(0), space_after=Pt(2))
+                p_tech.paragraph_format.left_indent = Cm(0.5)
+                add_text_run(p_tech, f"技术栈：{tech_text}",
+                             CN_FONT_BODY, EN_FONT, BODY_SIZE)
+
+            # 项目描述：（宋体标签）
             if proj["desc"]:
                 add_label_text(doc, "项目描述：",
                                space_before=Pt(6), space_after=Pt(2))
-                # 描述正文（楷体，带首行缩进）
+                # 描述正文（楷体，首行缩进）
                 add_body_text(doc, proj["desc"], indent=True,
                               space_before=Pt(0), space_after=Pt(4))
 
-            # 工作内容与成果：（宋体小标签）
+            # 工作内容与成果：（宋体标签）
             duties = merge_duty_items(proj["duties"])
             if duties:
                 add_label_text(doc, "工作内容与成果：",
                                space_before=Pt(6), space_after=Pt(2))
                 for duty in duties:
-                    # 编号条目带左缩进
-                    add_body_text(doc, duty, left_indent=Cm(1.0),
+                    # 编号条目用首行缩进
+                    add_body_text(doc, duty, indent=True,
                                   space_before=Pt(2), space_after=Pt(2))
 
     # ============================================================
