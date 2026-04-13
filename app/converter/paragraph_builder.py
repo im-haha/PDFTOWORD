@@ -12,11 +12,16 @@ DEFAULT_MARGIN_PT = 36.0
 
 def _determine_align(block_bbox: tuple[float, float, float, float], page_width: float) -> str:
     x0, _, x1, _ = block_bbox
+    block_width = max(1.0, x1 - x0)
     center = (x0 + x1) / 2
     left_gap = x0
     right_gap = page_width - x1
 
-    if abs(center - page_width / 2) <= 12 and abs(left_gap - right_gap) <= 16:
+    if (
+        block_width < page_width * 0.62
+        and abs(center - page_width / 2) <= 12
+        and abs(left_gap - right_gap) <= 16
+    ):
         return "center"
     if right_gap < 28 and left_gap > 120:
         return "right"
@@ -52,12 +57,30 @@ def _lines_to_runs(lines: list[LineRaw]) -> list[RunData]:
     for line_idx, line in enumerate(lines):
         for span_idx, span in enumerate(line.spans):
             text = span.text
-            if line_idx < len(lines) - 1 and span_idx == len(line.spans) - 1:
-                text += "\n"
             if not text:
                 continue
 
             runs.append(_span_to_run(span, text=text))
+
+        # Keep paragraph continuity and let Word perform natural line wrapping.
+        if line_idx < len(lines) - 1 and runs:
+            prev_line = line
+            next_line = lines[line_idx + 1]
+            prev_last = prev_line.spans[-1].text[-1:] if prev_line.spans else ""
+            next_first = next_line.spans[0].text[:1] if next_line.spans else ""
+
+            if prev_last and next_first and prev_last.isascii() and next_first.isascii():
+                # ASCII words likely need a separating space.
+                runs.append(
+                    RunData(
+                        text=" ",
+                        font_name=runs[-1].font_name,
+                        font_size=runs[-1].font_size,
+                        bold=runs[-1].bold,
+                        italic=runs[-1].italic,
+                        color=runs[-1].color,
+                    )
+                )
     return runs
 
 
@@ -80,13 +103,24 @@ def _build_paragraph_from_lines(
     sizes = [_line_font_size(line) for line in lines]
     heights = [_line_height(line) for line in lines]
 
-    left_indent = max(0.0, lines[0].bbox[0] - DEFAULT_MARGIN_PT)
-    right_indent = max(0.0, (page_width - DEFAULT_MARGIN_PT) - lines[-1].bbox[2])
-    first_line_indent = max(0.0, lines[0].bbox[0] - block_bbox[0])
+    min_x0 = min(line.bbox[0] for line in lines)
+    max_x1 = max(line.bbox[2] for line in lines)
+    align = _determine_align(block_bbox, page_width)
+
+    left_indent = max(0.0, min_x0 - DEFAULT_MARGIN_PT)
+    # Large right indents make Word wrap text vertically. Only keep right-side
+    # constraints for right-aligned blocks; normal paragraphs should use full width.
+    if align == "right":
+        right_indent = max(0.0, (page_width - DEFAULT_MARGIN_PT) - max_x1)
+    else:
+        right_indent = 0.0
+    first_line_indent = max(0.0, lines[0].bbox[0] - min_x0)
 
     base_font_size = float(median(sizes)) if sizes else 11.0
     base_line_h = float(median(heights)) if heights else 13.0
-    line_spacing = min(2.0, max(1.0, base_line_h / max(1.0, base_font_size)))
+    # Keep an absolute line height (pt) close to PDF glyph boxes to reduce
+    # Word reflow differences across pages.
+    line_spacing = max(8.0, min(32.0, base_line_h))
 
     return ParagraphData(
         bbox=(
@@ -95,13 +129,13 @@ def _build_paragraph_from_lines(
             max(line.bbox[2] for line in lines),
             max(line.bbox[3] for line in lines),
         ),
-        align=_determine_align(block_bbox, page_width),
+        align=align,
         left_indent=left_indent,
         right_indent=right_indent,
         first_line_indent=first_line_indent,
         line_spacing=line_spacing,
         space_before=0.0,
-        space_after=max(1.0, base_font_size * 0.35),
+        space_after=0.0,
         runs=_lines_to_runs(lines),
     )
 

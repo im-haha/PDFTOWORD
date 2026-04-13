@@ -6,8 +6,8 @@ from app.converter.pdf_reader import LineRaw, PageRaw
 from app.converter.schema import TableData
 
 
-MIN_COLS = 2
-MIN_ROWS = 2
+MIN_COLS = 3
+MIN_ROWS = 3
 LINE_JOIN_GAP = 20.0
 COL_SPLIT_GAP = 22.0
 
@@ -44,8 +44,7 @@ def _line_to_cells(line: LineRaw) -> LineCells | None:
     cells.append(current.strip())
     anchors.append(current_anchor)
 
-    non_empty = [c for c in cells if c]
-    if len(non_empty) < MIN_COLS:
+    if len(cells) < MIN_COLS:
         return None
 
     return LineCells(bbox=line.bbox, cells=cells, anchors=anchors)
@@ -87,6 +86,11 @@ def detect_tables(page_raw: PageRaw) -> list[TableData]:
                 break
 
         if len(group) >= MIN_ROWS:
+            avg_cols = sum(len(row.cells) for row in group) / max(1, len(group))
+            if avg_cols < MIN_COLS:
+                i += 1
+                continue
+
             x0 = min(row.bbox[0] for row in group)
             y0 = min(row.bbox[1] for row in group)
             x1 = max(row.bbox[2] for row in group)

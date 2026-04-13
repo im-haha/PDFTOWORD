@@ -22,8 +22,8 @@ class ConversionTask(Base):
     file_size: Mapped[int] = mapped_column(BigInteger)
     page_count: Mapped[int] = mapped_column(Integer)
     retain_layout: Mapped[bool] = mapped_column(Boolean, default=True)
-    detect_tables: Mapped[bool] = mapped_column(Boolean, default=True)
-    conversion_mode: Mapped[str] = mapped_column(String(30), default="visual_exact")
+    detect_tables: Mapped[bool] = mapped_column(Boolean, default=False)
+    conversion_mode: Mapped[str] = mapped_column(String(30), default="editable")
 
     error_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

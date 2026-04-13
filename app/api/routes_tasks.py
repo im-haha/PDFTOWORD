@@ -50,7 +50,7 @@ async def create_conversion_task(
     request: Request,
     file: UploadFile = File(...),
     retainLayout: bool = Form(True),
-    detectTables: bool = Form(True),
+    detectTables: bool = Form(False),
     outputName: str | None = Form(None),
     conversionMode: str | None = Form(None),
 ) -> JSONResponse:

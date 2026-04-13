@@ -39,11 +39,13 @@ def _apply_paragraph_spacing(paragraphs: list[ParagraphData]) -> None:
     for idx in range(1, len(paragraphs)):
         prev = paragraphs[idx - 1]
         cur = paragraphs[idx]
+        same_row = abs(cur.bbox[1] - prev.bbox[1]) <= 1.8
         gap = max(0.0, cur.bbox[1] - prev.bbox[3])
-        if gap <= 2:
+        if same_row or gap <= 1.0:
             cur.space_before = 0.0
         else:
-            cur.space_before = min(18.0, gap * 0.45)
+            # Use physical vertical gap in PDF coordinates (pt) directly.
+            cur.space_before = min(28.0, gap)
 
 
 def build_layout(raw_doc: PdfRawDocument, detect_tables_enabled: bool = True) -> DocumentLayout:

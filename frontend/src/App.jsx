@@ -10,7 +10,7 @@ const POLL_STATUS = new Set(['queued', 'processing'])
 
 const DEFAULT_FORM = {
   retainLayout: true,
-  detectTables: true,
+  detectTables: false,
   outputName: '',
   conversionMode: 'editable'
 }
