@@ -93,8 +93,18 @@ def _apply_paragraph_spacing(paragraphs: list[ParagraphData], retain_layout: boo
         prev = paragraphs[idx - 1]
         same_row = abs(para.bbox[1] - prev.bbox[1]) <= 1.8
         gap = max(0.0, para.bbox[1] - prev.bbox[3])
+        line_gap_like = gap <= (max(prev.line_spacing, para.line_spacing) * 1.15 + 1.5)
+        shared_block = bool(set(prev.source_block_ids) & set(para.source_block_ids))
 
         if same_row or gap <= 1.0:
+            para.space_before = 0.0
+        elif shared_block and line_gap_like:
+            para.space_before = 0.0
+        elif (
+            prev.role in {"body", "list_item"}
+            and para.role in {"body", "list_item"}
+            and line_gap_like
+        ):
             para.space_before = 0.0
         else:
             para.space_before = min(28.0, gap if retain_layout else gap * 0.55)

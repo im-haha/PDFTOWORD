@@ -139,7 +139,7 @@ class ConvertService:
             layout = build_layout(raw_doc, detect_tables_enabled=detect_tables, retain_layout=retain_layout)
             cb(70)
 
-            write_docx(layout, docx_path)
+            write_docx(layout, docx_path, force_page_breaks=False)
             cb(95)
 
             font_substitutions = get_font_substitutions()
@@ -150,6 +150,11 @@ class ConvertService:
                 font_substitutions=font_substitutions,
                 warnings=[] if retain_layout else ["retainLayout disabled: semantic flow prioritized"],
             )
+            if retain_layout:
+                payload["warnings"] = [
+                    *payload.get("warnings", []),
+                    "editable mode uses adaptive pagination to avoid large blank pages",
+                ]
             report = ConversionReport.from_payload(payload)
 
         cb(100)

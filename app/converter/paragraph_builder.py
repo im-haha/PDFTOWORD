@@ -82,10 +82,20 @@ def _is_same_paragraph_score(prev_line: LineRaw, cur_line: LineRaw, page_width: 
     elif gap_ratio > 0.95:
         score -= 0.35
 
+    prev_is_list = _starts_list_prefix(prev_text)
+    cur_is_list = _starts_list_prefix(cur_text)
+
+    left_penalty_high = 0.38
+    left_penalty_mid = 0.22
+    if prev_is_list and not cur_is_list:
+        # Wrapped list continuation lines often have larger indentation shifts.
+        left_penalty_high = 0.15
+        left_penalty_mid = 0.08
+
     if left_delta > 16:
-        score -= 0.38
+        score -= left_penalty_high
     elif left_delta > 9:
-        score -= 0.22
+        score -= left_penalty_mid
 
     if right_delta > page_width * 0.10:
         score -= 0.18
@@ -96,15 +106,21 @@ def _is_same_paragraph_score(prev_line: LineRaw, cur_line: LineRaw, page_width: 
     if font_changed:
         score -= 0.12
 
-    if _starts_list_prefix(cur_text):
+    if cur_is_list:
         score -= 0.45
 
-    if _starts_list_prefix(prev_text) and left_delta > 3:
+    if prev_is_list and left_delta > 3:
         score -= 0.25
+
+    if prev_is_list and not cur_is_list and gap_ratio <= 1.05 and size_delta <= 1.3:
+        score += 0.35
 
     prev_near_full = (px1 - px0) >= page_width * 0.65
     if prev_near_full and not _ends_natural(prev_text) and left_delta <= 8:
         score += 0.16
+
+    if not _ends_natural(prev_text) and not cur_is_list and gap_ratio <= 1.05:
+        score += 0.20
 
     if prev_text.endswith("-") and cur_text[:1].isalpha():
         score += 0.14

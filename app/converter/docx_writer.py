@@ -269,7 +269,7 @@ def _is_same_size(a: PageLayout, b: PageLayout) -> bool:
     return abs(a.width - b.width) < 1.0 and abs(a.height - b.height) < 1.0 and a.rotation == b.rotation
 
 
-def write_docx(layout: DocumentLayout, output_path: str) -> None:
+def write_docx(layout: DocumentLayout, output_path: str, force_page_breaks: bool = False) -> None:
     document = Document()
 
     if not layout.pages:
@@ -282,11 +282,12 @@ def write_docx(layout: DocumentLayout, output_path: str) -> None:
     for page_index, page in enumerate(layout.pages):
         if page_index > 0:
             prev_page = layout.pages[page_index - 1]
-            if _is_same_size(prev_page, page):
+            if force_page_breaks and _is_same_size(prev_page, page):
                 document.add_page_break()
             else:
-                current_section = document.add_section(WD_SECTION.NEW_PAGE)
-                _set_section_size(current_section, page)
+                if not _is_same_size(prev_page, page):
+                    current_section = document.add_section(WD_SECTION.NEW_PAGE)
+                    _set_section_size(current_section, page)
 
         elements: list[tuple[float, str, object]] = []
         paragraph_rows = _group_paragraph_rows(page.paragraphs)
