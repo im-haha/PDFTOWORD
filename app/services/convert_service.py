@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from app.converter.docx_writer import write_docx
@@ -9,6 +10,7 @@ from app.converter.font_mapper import get_font_substitutions, reset_font_substit
 from app.converter.layout_analyzer import build_layout
 from app.converter.pdf_reader import read_pdf_raw
 from app.converter.quality_report import build_quality_report
+from app.converter.resume_formatter import format_resume_docx
 from app.converter.visual_exact_writer import write_docx_visual_exact
 from app.config import settings
 from app.services.storage_service import build_temp_image_dir
@@ -92,7 +94,7 @@ class ConvertService:
         pdf_path: str,
         docx_path: str,
         progress_callback: Callable[[int], None] | None = None,
-        conversion_mode: str = "visual_exact",
+        conversion_mode: str = "resume",
         detect_tables: bool = True,
         retain_layout: bool = True,
     ) -> ConversionResult:
@@ -130,6 +132,36 @@ class ConvertService:
                 }
                 for idx in range(page_count)
             ]
+            report = ConversionReport.from_payload(payload)
+        elif conversion_mode == "resume":
+            reset_font_substitutions()
+            raw_doc = read_pdf_raw(pdf_path, temp_dir)
+            cb(30)
+
+            layout = build_layout(raw_doc, detect_tables_enabled=detect_tables, retain_layout=retain_layout)
+            cb(60)
+
+            intermediate_path = str(Path(temp_dir) / f"{task_id}_editable.docx")
+            write_docx(layout, intermediate_path, force_page_breaks=False)
+            cb(80)
+
+            resume_summary = format_resume_docx(intermediate_path, docx_path)
+            cb(95)
+
+            font_substitutions = get_font_substitutions()
+            payload = build_quality_report(
+                mode="resume",
+                raw_doc=raw_doc,
+                layout=layout,
+                font_substitutions=font_substitutions,
+                warnings=[
+                    "resume mode applies structured resume extraction and template-based layout rebuild",
+                    (
+                        f"resume sections: work={resume_summary['workExperienceCount']}, "
+                        f"skills={resume_summary['skillCount']}, projects={resume_summary['projectCount']}"
+                    ),
+                ],
+            )
             report = ConversionReport.from_payload(payload)
         else:
             reset_font_substitutions()

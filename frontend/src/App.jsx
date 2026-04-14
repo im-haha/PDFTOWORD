@@ -12,7 +12,7 @@ const DEFAULT_FORM = {
   retainLayout: true,
   detectTables: false,
   outputName: '',
-  conversionMode: 'editable'
+  conversionMode: 'resume'
 }
 
 function mapError(error) {
@@ -140,7 +140,7 @@ export default function App() {
         <div className="hero-brand">PDF to Word</div>
         <h1>文本型 PDF 高保真转换工作台</h1>
         <p>
-          上传 PDF，异步转换，轮询状态，下载结果。`editable` 优先可编辑性；`visual_exact` 优先外观还原。
+          上传 PDF，异步转换，轮询状态，下载结果。`resume` 按简历模板重排；`editable` 优先可编辑性；`visual_exact` 优先外观还原。
         </p>
       </header>
 
@@ -180,10 +180,16 @@ export default function App() {
                 value={form.conversionMode}
                 onChange={(e) => setForm((old) => ({ ...old, conversionMode: e.target.value }))}
               >
+                <option value="resume">resume（按简历模板重排）</option>
                 <option value="editable">editable（可编辑优先）</option>
                 <option value="visual_exact">visual_exact（外观最接近原 PDF）</option>
               </select>
             </label>
+            {form.conversionMode === 'resume' ? (
+              <div className="mode-risk">
+                当前模式会按简历结构重组内容，更统一，但不保证完全保留原始视觉排版。
+              </div>
+            ) : null}
             {form.conversionMode === 'visual_exact' ? (
               <div className="mode-risk">
                 当前模式更像原版 PDF，但正文可能是页面图片，不适合深度编辑。

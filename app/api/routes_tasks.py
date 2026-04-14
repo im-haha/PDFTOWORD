@@ -40,10 +40,10 @@ def _normalize_output_name(output_name: str | None) -> str | None:
 def _normalize_conversion_mode(conversion_mode: str | None) -> str:
     if conversion_mode:
         mode = conversion_mode.strip().lower()
-        if mode in {"visual_exact", "editable"}:
+        if mode in {"visual_exact", "editable", "resume"}:
             return mode
         raise build_error("INVALID_FILE_TYPE", "invalid conversion mode", 400)
-    return "editable"
+    return "resume"
 
 
 @router.post("", status_code=202)

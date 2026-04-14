@@ -15,8 +15,9 @@
 - 任务元数据：SQLite `storage/tasks.db`
 
 ## 高保真策略（当前版本）
-- 默认：`visual_exact`（视觉无损）模式，按页渲染写入 Word，外观最接近原 PDF
+- 默认：`resume`（标准简历重排）模式，先生成可编辑文档，再按 `format_resume` 同逻辑抽取并重建简历结构
 - 可选：`editable`（可编辑）模式，走段落/run/表格重建
+- 可选：`visual_exact`（视觉无损）模式，按页渲染写入 Word，外观最接近原 PDF
 - 解析：PyMuPDF `dict/raw` 级别块、行、span
 - 生成：python-docx paragraph/run/section/table/image
 - 字体：subset 字体名清洗 + 映射 + 粗斜体识别
@@ -50,7 +51,7 @@ curl -X POST "http://127.0.0.1:8000/api/v1/tasks" \
   -F "file=@/absolute/path/to/sample.pdf" \
   -F "retainLayout=true" \
   -F "detectTables=true" \
-  -F "conversionMode=visual_exact"
+  -F "conversionMode=resume"
 ```
 
 ## 目录结构

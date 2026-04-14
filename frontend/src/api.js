@@ -4,7 +4,7 @@ function normalizeTask(data) {
   const report = data?.report || null
   return {
     ...data,
-    conversionMode: data?.conversionMode || 'editable',
+    conversionMode: data?.conversionMode || 'resume',
     retainLayout: Boolean(data?.retainLayout),
     detectTables: Boolean(data?.detectTables),
     layoutWarnings: Array.isArray(data?.layoutWarnings) ? data.layoutWarnings : [],
